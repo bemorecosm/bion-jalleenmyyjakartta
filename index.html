@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BiON Skincare – Jälleenmyyjät</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Helvetica Neue', Arial, sans-serif; display: flex; height: 100vh; overflow: hidden; background: #f5f5f5; }
+
+    /* ── Sivupalkki ── */
+    #sidebar {
+      width: 320px;
+      min-width: 260px;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #e0e0e0;
+      z-index: 1000;
+    }
+
+    #sidebar-header {
+      padding: 20px 20px 18px;
+      background: linear-gradient(135deg, #0e0b28 0%, #2a2260 50%, #4d45a0 100%);
+      color: #fff;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    #sidebar-logo {
+      height: 36px;
+      width: auto;
+      object-fit: contain;
+      flex-shrink: 0;
+      filter: brightness(0) invert(1); /* logo valkoisena */
+    }
+    #sidebar-header-text { flex: 1; }
+    #sidebar-header h2 { font-size: 15px; font-weight: 700; letter-spacing: 0.5px; }
+    #sidebar-header p  { font-size: 12px; opacity: 0.75; letter-spacing: 0.4px; }
+
+    #search-box {
+      padding: 12px 14px;
+      border-bottom: 1px solid #f0f0f0;
+      flex-shrink: 0;
+    }
+    #search-input {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    #search-input:focus { border-color: #1a1a1a; }
+
+    #results-count {
+      padding: 7px 14px;
+      font-size: 11px;
+      color: #999;
+      background: #fafafa;
+      border-bottom: 1px solid #f0f0f0;
+      flex-shrink: 0;
+    }
+
+    #retailer-list { overflow-y: auto; flex: 1; }
+
+    .retailer-card {
+      padding: 13px 14px;
+      border-bottom: 1px solid #f3f3f3;
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+    .retailer-card:hover  { background: #f7f7f7; }
+    .retailer-card.active { background: #f0f0f0; }
+
+    .retailer-card-inner { display: flex; gap: 10px; align-items: flex-start; }
+    .retailer-thumb {
+      width: 52px; height: 52px; flex-shrink: 0;
+      border-radius: 6px;
+      object-fit: cover;
+      background: #f0f0f0;
+      border: 1px solid #e8e8e8;
+    }
+    .retailer-thumb-placeholder {
+      width: 52px; height: 52px; flex-shrink: 0;
+      border-radius: 6px;
+      background: #f0f0f0;
+      border: 1px solid #e8e8e8;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; color: #ccc;
+    }
+    .retailer-info { flex: 1; min-width: 0; }
+    .retailer-name    { font-weight: 600; font-size: 13px; color: #1a1a1a; margin-bottom: 2px; }
+    .retailer-address { font-size: 12px; color: #666; margin-bottom: 1px; }
+    .retailer-city    { font-size: 11px; color: #aaa; }
+    .retailer-phone-chip { font-size: 11px; color: #888; }
+    .retailer-extra { font-size: 11px; color: #aaa; margin-top: 5px; font-style: italic; }
+
+    .retailer-links { margin-top: 6px; display: flex; gap: 5px; flex-wrap: wrap; }
+    .retailer-link {
+      display: inline-block;
+      font-size: 11px;
+      color: #555;
+      text-decoration: none;
+      border: 1px solid #ddd;
+      padding: 2px 8px;
+      border-radius: 4px;
+      transition: all 0.15s;
+    }
+    .retailer-link:hover { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+    .retailer-link.instagram:hover { background: #c13584; border-color: #c13584; }
+
+    .no-results { padding: 24px 16px; text-align: center; color: #bbb; font-size: 13px; }
+
+    /* ── Kartta ── */
+    #map { flex: 1; }
+
+    /* ── Latauspalkki ── */
+    #loading-overlay {
+      position: fixed; inset: 0;
+      background: rgba(255,255,255,0.85);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999;
+    }
+    #loading-overlay.hidden { display: none; }
+    #loading-box {
+      background: #fff;
+      padding: 28px 36px;
+      border-radius: 10px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+      text-align: center;
+      max-width: 320px;
+    }
+    #loading-box .spinner {
+      width: 28px; height: 28px;
+      border: 3px solid #eee;
+      border-top-color: #1a1a1a;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto 14px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading-box h3  { font-size: 14px; color: #1a1a1a; margin-bottom: 6px; }
+    #loading-progress { font-size: 11px; color: #aaa; margin-top: 4px; }
+    #loading-hint     { font-size: 10px; color: #ccc; margin-top: 8px; }
+
+    /* ── Popup ── */
+    .popup-img { width: 100%; max-height: 120px; object-fit: cover; border-radius: 6px; margin-bottom: 8px; display: block; }
+    .popup-name    { font-weight: 700; font-size: 13px; margin-bottom: 5px; }
+    .popup-row     { font-size: 12px; color: #555; margin-bottom: 2px; }
+    .popup-links   { margin-top: 7px; display: flex; gap: 6px; flex-wrap: wrap; }
+    .popup-links a { font-size: 12px; color: #1a1a1a; font-weight: 600; text-decoration: none; border: 1px solid #ddd; padding: 2px 8px; border-radius: 4px; }
+    .popup-links a:hover { background: #1a1a1a; color: #fff; }
+    .popup-links a.ig:hover { background: #c13584; border-color: #c13584; color: #fff; }
+
+    /* ── Virheviesti ── */
+    #error-banner {
+      display: none;
+      position: fixed;
+      bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: #c0392b; color: #fff;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 13px;
+      z-index: 9999;
+      max-width: 90%;
+    }
+
+    /* ── Mobiili ── */
+    #mobile-toggle { display: none; }
+
+    @media (max-width: 600px) {
+      body { flex-direction: column; overflow: hidden; }
+
+      #sidebar {
+        width: 100%;
+        height: 100dvh;
+        min-width: unset;
+        border-right: none;
+        border-bottom: none;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        z-index: 10;
+        padding-bottom: 72px; /* tilaa toggle-napille */
+      }
+      #sidebar.map-active { display: none; }
+
+      #map {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        height: 100dvh;
+        z-index: 5;
+      }
+      #map.list-active { visibility: hidden; }
+
+      #mobile-toggle {
+        display: flex;
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9000;
+        background: linear-gradient(135deg, #0e0b28 0%, #2a2260 50%, #4d45a0 100%);
+        color: #fff;
+        border: none;
+        padding: 14px 28px;
+        border-radius: 30px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+        gap: 8px;
+        align-items: center;
+        white-space: nowrap;
+        letter-spacing: 0.3px;
+      }
+
+      .retailer-card { padding: 16px 14px; }
+      #search-input { font-size: 16px; padding: 11px 14px; } /* estää iOS zoom */
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════
+     ASETA TÄHÄN OMA GOOGLE SHEETS CSV -OSOITTEESI
+     Ohjeet: README.md / OHJEET.txt
+════════════════════════════════════════════════ -->
+<script>
+  const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQfHIm3ssc0LreAD9lCDaFY7T9ScRIRZnIMg9goYC5LHaA6gbXC8JnCSWDnkrTWZudIUgkcxh3e9zyU/pub?output=csv';
+</script>
+<!-- ════════════════════════════════════════════ -->
+
+<div id="sidebar">
+  <div id="sidebar-header">
+    <img id="sidebar-logo" src="https://images.squarespace-cdn.com/content/68ed358dad1ea963c03aeaf6/36522b6d-228c-4c9e-a148-63ee8d647f55/bion-logo-valkoinen.png?content-type=image%2Fpng" alt="BiON Skincare">
+    <div id="sidebar-header-text">
+      <p>Jälleenmyyjät Suomessa</p>
+    </div>
+  </div>
+  <div id="search-box">
+    <input type="text" id="search-input"
+           placeholder="Hae nimellä, paikkakunnalla tai postinumerolla…" />
+  </div>
+  <div id="results-count">Ladataan…</div>
+  <div id="retailer-list"></div>
+</div>
+
+<div id="map"></div>
+
+<button id="mobile-toggle" onclick="toggleMobileView()">🗺 Näytä kartta</button>
+
+<div id="loading-overlay">
+  <div id="loading-box">
+    <div class="spinner"></div>
+    <h3>Haetaan jälleenmyyjiä…</h3>
+    <div id="loading-progress"></div>
+    <div id="loading-hint">Ensimmäinen lataus hakee koordinaatit –<br>sen jälkeen kartta avautuu hetkessä.</div>
+  </div>
+</div>
+
+<div id="error-banner"></div>
+
+<script>
+// ─────────────────────────────────────────────────────────
+// Apufunktiot
+// ─────────────────────────────────────────────────────────
+function escHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-banner');
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 6000);
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function igLink(ig) {
+  if (!ig) return '';
+  if (ig.startsWith('http')) return ig;
+  return 'https://instagram.com/' + ig.replace(/^@/, '');
+}
+
+// ─────────────────────────────────────────────────────────
+// Geocoding (Nominatim + localStorage-välimuisti)
+// ─────────────────────────────────────────────────────────
+const CACHE_KEY = 'bion_geocache_v2';
+let geocache = {};
+try { geocache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); } catch(e) {}
+
+function saveCache() {
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(geocache)); } catch(e) {}
+}
+
+async function geocode(row) {
+  const key = `${row.Osoite}|${row.Postinumero}|${row.Paikkakunta}`.toLowerCase();
+
+  if (geocache[key]) return geocache[key];
+
+  // Nominatim: max 1 pyyntö/sekunti
+  await sleep(1200);
+
+  const searches = [
+    `${row.Osoite}, ${row.Postinumero} ${row.Paikkakunta}, Finland`,
+    `${row.Postinumero} ${row.Paikkakunta}, Finland`,
+  ];
+
+  for (const q of searches) {
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&countrycodes=fi`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data && data.length > 0) {
+        const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+        geocache[key] = coords;
+        saveCache();
+        return coords;
+      }
+    } catch(e) {
+      console.warn('Geocoding error:', e);
+    }
+    await sleep(1200);
+  }
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────
+// Kartta
+// ─────────────────────────────────────────────────────────
+const map = L.map('map', { center: [65.0, 26.0], zoom: 6 });
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  maxZoom: 19
+}).addTo(map);
+
+const dotIcon = L.divIcon({
+  className: '',
+  html: `<div style="
+    width:13px;height:13px;
+    background:#1a1a1a;
+    border:2.5px solid #fff;
+    border-radius:50%;
+    box-shadow:0 2px 6px rgba(0,0,0,0.35);
+  "></div>`,
+  iconSize: [13, 13],
+  iconAnchor: [6, 6],
+  popupAnchor: [0, -10]
+});
+
+// ─────────────────────────────────────────────────────────
+// Tila
+// ─────────────────────────────────────────────────────────
+let allRetailers = [];
+
+// ─────────────────────────────────────────────────────────
+// Lista-renderöinti
+// ─────────────────────────────────────────────────────────
+function renderList(retailers) {
+  const list  = document.getElementById('retailer-list');
+  const count = document.getElementById('results-count');
+  const shown = retailers.filter(r => r._coords);
+
+  count.textContent = shown.length === allRetailers.filter(r=>r._coords).length
+    ? `${shown.length} jälleenmyyjää`
+    : `${shown.length} tulosta`;
+
+  if (shown.length === 0) {
+    list.innerHTML = '<div class="no-results">Ei hakutuloksia</div>';
+    return;
+  }
+
+  list.innerHTML = shown.map(r => {
+    const igUrl = r.Instagram ? igLink(r.Instagram) : '';
+    const _kuva = (r.Kuva || '').trim();
+    const imgHtml = _kuva
+      ? `<img class="retailer-thumb" src="${escHtml(_kuva)}" alt="${escHtml(r.Nimi)}" onerror="this.outerHTML='<div class=\\'retailer-thumb-placeholder\\'>🧴</div>'">`
+      : `<div class="retailer-thumb-placeholder">🧴</div>`;
+    return `
+    <div class="retailer-card" data-index="${r._index}" onclick="selectRetailer(${r._index})">
+      <div class="retailer-card-inner">
+        ${imgHtml}
+        <div class="retailer-info">
+          <div class="retailer-name">${escHtml(r.Nimi)}</div>
+          <div class="retailer-city">${r.Postinumero ? escHtml(r.Postinumero) + ' ' : ''}${escHtml(r.Paikkakunta)}</div>
+          <div class="retailer-links">
+            ${r.Puhelin ? `<span class="retailer-phone-chip">📞 ${escHtml(r.Puhelin)}</span>` : ''}
+            ${r.Kotisivut ? `<a class="retailer-link" href="${escHtml(r.Kotisivut)}" target="_blank" onclick="event.stopPropagation()">www</a>` : ''}
+            ${igUrl ? `<a class="retailer-link instagram" href="${escHtml(igUrl)}" target="_blank" onclick="event.stopPropagation()">IG</a>` : ''}
+          </div>
+          ${r.Lisätiedot ? `<div class="retailer-extra">${escHtml(r.Lisätiedot)}</div>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function selectRetailer(index) {
+  const r = allRetailers[index];
+  if (!r || !r._coords) return;
+
+  document.querySelectorAll('.retailer-card').forEach(c => c.classList.remove('active'));
+  const card = document.querySelector(`.retailer-card[data-index="${index}"]`);
+  if (card) {
+    card.classList.add('active');
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // Mobiililla: vaihda automaattisesti karttanäkymään
+  if (window.innerWidth <= 600) {
+    showMapView();
+  }
+
+  map.setView([r._coords.lat, r._coords.lng], 14, { animate: true });
+  if (r._marker) r._marker.openPopup();
+}
+
+function showMapView() {
+  document.getElementById('sidebar').classList.add('map-active');
+  document.getElementById('map').classList.remove('list-active');
+  document.getElementById('mobile-toggle').textContent = '☰ Näytä lista';
+  setTimeout(() => map.invalidateSize(), 50);
+}
+
+function showListView() {
+  document.getElementById('sidebar').classList.remove('map-active');
+  document.getElementById('map').classList.add('list-active');
+  document.getElementById('mobile-toggle').textContent = '🗺 Näytä kartta';
+}
+
+function toggleMobileView() {
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar.classList.contains('map-active')) {
+    showListView();
+  } else {
+    showMapView();
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// Haku / suodatus
+// ─────────────────────────────────────────────────────────
+document.getElementById('search-input').addEventListener('input', function() {
+  const q = this.value.toLowerCase().trim();
+
+  const filtered = q
+    ? allRetailers.filter(r =>
+        (r.Nimi        && r.Nimi.toLowerCase().includes(q))        ||
+        (r.Paikkakunta && r.Paikkakunta.toLowerCase().includes(q)) ||
+        (r.Postinumero && r.Postinumero.includes(q))               ||
+        (r.Osoite      && r.Osoite.toLowerCase().includes(q))
+      )
+    : allRetailers;
+
+  renderList(filtered);
+
+  allRetailers.forEach(r => {
+    if (!r._marker) return;
+    if (!q || filtered.includes(r)) {
+      r._marker.addTo(map);
+    } else {
+      map.removeLayer(r._marker);
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────
+// Datan lataus
+// ─────────────────────────────────────────────────────────
+async function loadData() {
+  const overlay  = document.getElementById('loading-overlay');
+  const progress = document.getElementById('loading-progress');
+  overlay.classList.remove('hidden');
+
+  const rawCsv = await fetch(SHEET_CSV_URL).then(r => r.text());
+
+  // Normalisoi: jos datarivit käyttävät tabulaattoreita, muunna CSV:ksi
+  const lines = rawCsv.split('\n');
+  const normalized = lines.map(line => {
+    let l = line.replace(/\r$/, '');
+    l = l.replace(/,+$/, ''); // poista tyhjät loppusarakkeet ennen lainausmerkkitarkistusta
+    // Poista koko rivin ympärillä olevat CSV-lainaukset jos niitä on
+    if (l.startsWith('"') && l.endsWith('"')) {
+      l = l.slice(1, -1).replace(/""/g, '"');
+    }
+    if (!l.includes('\t')) return l;
+    // Poimi Kuva-URL H-sarakkeesta (pilkkupositio 7) ennen kuin se poistetaan
+    const tabParts = l.split('\t');
+    const lastField = tabParts[tabParts.length - 1];
+    let extractedKuva = '';
+    if (lastField.includes(',')) {
+      const commaCols = lastField.split(',');
+      if (commaCols.length > 7) extractedKuva = commaCols[7].trim();
+    }
+    return tabParts.map((v, idx, arr) => {
+      v = v.replace(/,{2,}.*$/, ''); // poista ylimääräiset pilkkusarakkeet (,,data)
+      if (idx === 0) v = v.replace(/^"/, ''); // poista aloituslainausmerkki
+      if (idx === arr.length - 1) v = v.replace(/"$/, ''); // poista lopetuslainus.
+      v = v.replace(/,+$/, '').replace(/^,+/, '');
+      // Jos Kuva-kenttä (indeksi 7) on tyhjä, käytä H-sarakkeesta poimittua arvoa
+      if (idx === 7 && !v && extractedKuva) v = extractedKuva;
+      if (v.includes(',') || v.includes('"') || v.includes('\n')) {
+        return '"' + v.replace(/"/g, '""') + '"';
+      }
+      return v;
+    }).join(',');
+  }).join('\n');
+
+  Papa.parse(normalized, {
+    header: true,
+    skipEmptyLines: true,
+
+    complete: async function(results) {
+      const rows = results.data;
+      const total = rows.length;
+
+      for (let i = 0; i < total; i++) {
+        const row = rows[i];
+        row._index = i;
+
+        progress.textContent = `${i + 1} / ${total} — ${row.Nimi || ''}`;
+
+        let coords = null;
+
+        // 1. Käytä valmiita koordinaatteja jos taulukossa
+        const lat = parseFloat(row.Leveysaste);
+        const lng = parseFloat(row.Pituusaste);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          coords = { lat, lng };
+        }
+
+        // 2. Geokoodaa tarvittaessa
+        if (!coords) coords = await geocode(row);
+
+        row._coords = coords;
+
+        if (coords) {
+          const _popupKuva = (row.Kuva || '').trim();
+          const imgHtml = _popupKuva
+            ? `<img class="popup-img" src="${escHtml(_popupKuva)}" alt="${escHtml(row.Nimi)}" onerror="this.style.display='none'">`
+            : '';
+          const phoneHtml = row.Puhelin
+            ? `<div class="popup-row">📞 ${escHtml(row.Puhelin)}</div>`
+            : '';
+          const extraHtml = row.Lisätiedot
+            ? `<div class="popup-row" style="margin-top:4px;font-style:italic">${escHtml(row.Lisätiedot)}</div>`
+            : '';
+          const igUrl = row.Instagram ? igLink(row.Instagram) : '';
+          const linksHtml = (row.Kotisivut || igUrl) ? `
+            <div class="popup-links">
+              ${row.Kotisivut ? `<a href="${escHtml(row.Kotisivut)}" target="_blank">Kotisivut ↗</a>` : ''}
+              ${igUrl ? `<a class="ig" href="${escHtml(igUrl)}" target="_blank">Instagram ↗</a>` : ''}
+            </div>` : '';
+
+          const marker = L.marker([coords.lat, coords.lng], { icon: dotIcon })
+            .bindPopup(`
+              ${imgHtml}
+              <div class="popup-name">${escHtml(row.Nimi)}</div>
+              <div class="popup-row">${escHtml(row.Osoite)}</div>
+              <div class="popup-row">${row.Postinumero ? escHtml(row.Postinumero) + ' ' : ''}${escHtml(row.Paikkakunta)}</div>
+              ${phoneHtml}
+              ${linksHtml}
+              ${extraHtml}
+            `, { maxWidth: 260 })
+            .addTo(map);
+
+          marker.on('click', () => {
+            document.querySelectorAll('.retailer-card').forEach(c => c.classList.remove('active'));
+            const card = document.querySelector(`.retailer-card[data-index="${i}"]`);
+            if (card) {
+              card.classList.add('active');
+              card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+          });
+
+          row._marker = marker;
+        }
+
+        allRetailers.push(row);
+      }
+
+      allRetailers.sort((a, b) => (a.Nimi || '').localeCompare(b.Nimi || '', 'fi'));
+      allRetailers.forEach((r, i) => r._index = i);
+      overlay.classList.add('hidden');
+      renderList(allRetailers);
+    },
+
+    error: function(err) {
+      overlay.classList.add('hidden');
+      showError('Virhe datan lataamisessa. Tarkista Google Sheets -URL ja julkisuusasetukset.');
+      document.getElementById('results-count').textContent = 'Latausvirhe';
+      console.error(err);
+    }
+  });
+}
+
+// ─────────────────────────────────────────────────────────
+// Käynnistys
+// ─────────────────────────────────────────────────────────
+if (SHEET_CSV_URL && SHEET_CSV_URL !== 'KORVAA_TÄMÄ_GOOGLE_SHEETS_CSV_URLILLA') {
+  loadData();
+} else {
+  document.getElementById('loading-overlay').classList.add('hidden');
+  document.getElementById('results-count').textContent = 'Aseta Google Sheets -URL tiedostoon';
+  showError('Muista asettaa SHEET_CSV_URL index.html-tiedostoon!');
+}
+</script>
+</body>
+</html>

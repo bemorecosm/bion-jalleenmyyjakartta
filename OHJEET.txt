@@ -1,0 +1,116 @@
+══════════════════════════════════════════════════════════════
+BiON Skincare – Jälleenmyyjäkartta: Käyttöönotto-ohjeet
+══════════════════════════════════════════════════════════════
+
+VAIHE 1: Luo Google Sheets -taulukko
+─────────────────────────────────────
+1. Avaa Google Drive → Uusi → Google Sheets
+2. Nimeä taulukko: "BiON Jälleenmyyjät"
+3. Tee ENSIMMÄISELLE riville nämä sarakkeet TÄSMÄLLEEN näin
+   (isot kirjaimet tärkeät!):
+
+   A: Nimi
+   B: Osoite
+   C: Postinumero
+   D: Paikkakunta
+   E: Kotisivut
+   F: Puhelin
+   G: Instagram      ← kirjoita @-tunnus tai koko URL
+   H: Kuva           ← kuvan URL (ohjeet alla)
+   I: Lisätiedot
+   J: Leveysaste     ← valinnainen (jätä tyhjäksi, kartta hakee automaattisesti)
+   K: Pituusaste     ← valinnainen
+
+4. Täytä rivit 2 eteenpäin jälleenmyyjien tiedoilla.
+   Esimerkkirivi:
+   Nimi:        Hoitola Kaunis Iho
+   Osoite:      Mannerheimintie 10
+   Postinumero: 00100
+   Paikkakunta: Helsinki
+   Kotisivut:   https://www.esimerkki.fi
+   Puhelin:     040 123 4567
+   Instagram:   @kaunis_iho  (tai https://instagram.com/kaunis_iho)
+   Kuva:        (kuvan URL – ks. ohjeet alla)
+   Lisätiedot:  (voi jättää tyhjäksi)
+
+── KUVAN LISÄÄMINEN ─────────────────────────────────────
+Vaihtoehto A – Google Drive (suositeltu):
+1. Lataa kuva Google Driveen (esim. hoitolan logo tai julkisivu)
+2. Klikkaa kuvaa hiiren oikealla → Jaa → Muuta julkiseksi (Kaikki, joilla linkki)
+3. Klikkaa oikealla → Hae linkki → kopioi tiedoston ID (pitkä merkkijono URL:ssa)
+4. Muodosta URL näin:
+   https://drive.google.com/thumbnail?id=TIEDOSTO_ID&sz=w400
+5. Liitä tämä URL Kuva-sarakkeeseen
+
+Vaihtoehto B – mikä tahansa kuva-URL:
+Voit käyttää mitä tahansa julkisesti saatavilla olevaa kuva-URL:ia
+(Instagram, kotisivut, jne.) kunhan se päättyy .jpg, .png tai .webp
+
+
+VAIHE 2: Julkaise taulukko CSV-muodossa
+─────────────────────────────────────────
+1. Google Sheets → Tiedosto → Jaa ja vie → Julkaise verkkoon
+2. Valitse: Koko asiakirja → CSV
+3. Klikkaa "Julkaise"
+4. KOPIOI annettu URL (näyttää tältä:
+   https://docs.google.com/spreadsheets/d/1ABC.../pub?output=csv)
+
+
+VAIHE 3: Lisää URL karttaan
+─────────────────────────────
+1. Avaa index.html tekstieditorilla (tai pyydä Claudea tekemään se)
+2. Etsi rivi:
+      const SHEET_CSV_URL = 'KORVAA_TÄMÄ_GOOGLE_SHEETS_CSV_URLILLA';
+3. Korvaa teksti omalla URL:llasi, esim:
+      const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1ABC.../pub?output=csv';
+4. Tallenna tiedosto
+
+
+VAIHE 4: Julkaise kartta (ilmainen hosting)
+────────────────────────────────────────────
+Vaihtoehto A – Netlify Drop (helpoin):
+1. Mene osoitteeseen: https://app.netlify.com/drop
+2. Vedä index.html -tiedosto selainikkunaan
+3. Saat ilmaisen URL:n, esim: https://amazing-name-123.netlify.app
+→ Tämä on karttasi julkinen osoite!
+
+Vaihtoehto B – GitHub Pages:
+1. Luo ilmainen GitHub-tili osoitteessa github.com
+2. Uusi repository → lisää index.html
+3. Settings → Pages → Source: main → Save
+→ Kartta osoitteessa: https://kayttajatunnus.github.io/repo-nimi/
+
+
+VAIHE 5: Lisää iframe Squarespaceen
+────────────────────────────────────
+1. Avaa Squarespace-sivuston muokkausnäkymä
+2. Lisää lohko: Embed / Code
+3. Liitä tämä koodi (korvaa URL omallasi):
+
+   <iframe
+     src="https://SINUN-KARTTASI-URL-TÄHÄN"
+     width="100%"
+     height="600"
+     frameborder="0"
+     style="border:none; border-radius:8px;"
+     allowfullscreen>
+   </iframe>
+
+4. Säädä height haluamaksesi (suositus: 600–800px)
+
+
+JATKOSSA: Jälleenmyyjien lisääminen ja muokkaaminen
+────────────────────────────────────────────────────
+→ Avaa Google Sheets millä tahansa laitteella
+→ Lisää, muokkaa tai poista rivejä
+→ Kartta päivittyy automaattisesti seuraavalla latauksella!
+   (koordinaatit haetaan uusille osoitteille ensimmäisellä kerralla)
+
+
+VIANETSINTÄ
+────────────────
+• Kartta ei lataa dataa  → Tarkista että Sheets on julkaistu (Vaihe 2)
+• Merkki puuttuu kartalta → Tarkista osoite, postinumero ja paikkakunta
+• iframe ei toimi Squarespacessa → Varmista että hosting-URL on HTTPS
+
+══════════════════════════════════════════════════════════════
