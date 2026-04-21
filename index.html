@@ -558,10 +558,11 @@ document.getElementById('search-input').addEventListener('input', function() {
 
   const filtered = q
     ? allRetailers.filter(r =>
-        (r.Nimi        && r.Nimi.toLowerCase().includes(q))        ||
-        (r.Paikkakunta && r.Paikkakunta.toLowerCase().includes(q)) ||
-        (r.Postinumero && r.Postinumero.includes(q))               ||
-        (r.Osoite      && r.Osoite.toLowerCase().includes(q))
+        (r.Nimi        && r.Nimi.toLowerCase().includes(q))           ||
+        (r.Paikkakunta && r.Paikkakunta.toLowerCase().includes(q))    ||
+        (r.Postinumero && r.Postinumero.includes(q))                  ||
+        (r.Osoite      && r.Osoite.toLowerCase().includes(q))         ||
+        (r.Lisätiedot  && r.Lisätiedot.toLowerCase().includes(q))
       )
     : allRetailers;
 
