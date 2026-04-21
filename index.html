@@ -115,6 +115,18 @@
     .retailer-link:hover { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
     .retailer-link.instagram:hover { background: #c13584; border-color: #c13584; }
 
+    .acne-badge {
+      display: inline-block;
+      font-size: 10px;
+      background: linear-gradient(135deg, #0e0b28 0%, #4d45a0 100%);
+      color: #fff;
+      padding: 2px 7px;
+      border-radius: 3px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      margin-top: 5px;
+    }
+
     .no-results {
       padding: 28px 20px 24px;
       text-align: center;
@@ -494,7 +506,7 @@ function renderList(retailers) {
             ${r.Kotisivut ? `<a class="retailer-link" href="${escHtml(r.Kotisivut)}" target="_blank" onclick="event.stopPropagation()">www</a>` : ''}
             ${igUrl ? `<a class="retailer-link instagram" href="${escHtml(igUrl)}" target="_blank" onclick="event.stopPropagation()">IG</a>` : ''}
           </div>
-          ${r.Lisätiedot ? `<div class="retailer-extra">${escHtml(r.Lisätiedot)}</div>` : ''}
+          ${(isAcneSpec(r)) ? `<span class="acne-badge">✨ Acne Specialist</span>` : ''}
         </div>
       </div>
     </div>`;
@@ -562,7 +574,8 @@ document.getElementById('search-input').addEventListener('input', function() {
         (r.Paikkakunta && r.Paikkakunta.toLowerCase().includes(q))    ||
         (r.Postinumero && r.Postinumero.includes(q))                  ||
         (r.Osoite      && r.Osoite.toLowerCase().includes(q))         ||
-        (r.Lisätiedot  && r.Lisätiedot.toLowerCase().includes(q))
+        (r.Lisätiedot     && r.Lisätiedot.toLowerCase().includes(q))     ||
+        (isAcneSpec(r) && 'acne specialist'.includes(q))
       )
     : allRetailers;
 
@@ -581,6 +594,13 @@ document.getElementById('search-input').addEventListener('input', function() {
 // ─────────────────────────────────────────────────────────
 // Merkki kartalle — erillinen funktio jotta voidaan kutsua myöhemmin
 // ─────────────────────────────────────────────────────────
+// TRUE, TOSI (suomi), tai "Acne Specialist" Lisätiedoissa
+function isAcneSpec(r) {
+  const v = (r.AcneSpecialist || '').toUpperCase().trim();
+  if (v === 'TRUE' || v === 'TOSI') return true;
+  return !!(r.Lisätiedot && r.Lisätiedot.toLowerCase().includes('acne specialist'));
+}
+
 function addRetailerMarker(r) {
   if (!r._coords) return;
   const coords = r._coords;
@@ -649,12 +669,13 @@ async function loadData() {
     // ennen kuin ne poistetaan regex:llä
     const tabParts = l.split('\t');
     const lastField = tabParts[tabParts.length - 1];
-    let extractedKuva = '', extractedLat = '', extractedLng = '';
+    let extractedKuva = '', extractedLat = '', extractedLng = '', extractedAcne = '';
     if (lastField.includes(',')) {
       const commaCols = lastField.split(',');
       if (commaCols.length > 7)  extractedKuva = commaCols[7].trim().replace(/"/g, '');
       if (commaCols.length > 9)  extractedLat  = commaCols[9].trim().replace(/"/g, '');
       if (commaCols.length > 10) extractedLng  = commaCols[10].trim().replace(/"/g, '');
+      if (commaCols.length > 11) extractedAcne = commaCols[11].trim().replace(/"/g, '');
     }
     const parts = tabParts.map((v, idx, arr) => {
       v = v.replace(/,{2,}.*$/, ''); // poista ylimääräiset pilkkusarakkeet (,,data)
@@ -670,6 +691,7 @@ async function loadData() {
     // Lisää Leveysaste (J) ja Pituusaste (K) rivin loppuun
     parts.push(extractedLat);
     parts.push(extractedLng);
+    parts.push(extractedAcne);
     return parts.join(',');
   }).join('\n');
 
