@@ -506,7 +506,7 @@ function renderList(retailers) {
             ${r.Kotisivut ? `<a class="retailer-link" href="${escHtml(r.Kotisivut)}" target="_blank" onclick="event.stopPropagation()">www</a>` : ''}
             ${igUrl ? `<a class="retailer-link instagram" href="${escHtml(igUrl)}" target="_blank" onclick="event.stopPropagation()">IG</a>` : ''}
           </div>
-          ${(isAcneSpec(r)) ? `<span class="acne-badge">🥼 Acne Specialist</span>` : ''}
+          ${(isAcneSpec(r)) ? `<span class="acne-badge">Acne Specialist</span>` : ''}
         </div>
       </div>
     </div>`;
