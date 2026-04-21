@@ -115,7 +115,37 @@
     .retailer-link:hover { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
     .retailer-link.instagram:hover { background: #c13584; border-color: #c13584; }
 
-    .no-results { padding: 24px 16px; text-align: center; color: #bbb; font-size: 13px; }
+    .no-results {
+      padding: 28px 20px 24px;
+      text-align: center;
+    }
+    .no-results-icon { font-size: 32px; margin-bottom: 10px; }
+    .no-results-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1a1a1a;
+      margin-bottom: 7px;
+    }
+    .no-results-text {
+      font-size: 12px;
+      color: #888;
+      line-height: 1.55;
+      margin-bottom: 18px;
+    }
+    .no-results-btn {
+      display: inline-block;
+      background: linear-gradient(135deg, #0e0b28 0%, #2a2260 50%, #4d45a0 100%);
+      color: #fff;
+      text-decoration: none;
+      padding: 12px 22px;
+      border-radius: 24px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      box-shadow: 0 4px 14px rgba(42,34,96,0.35);
+      transition: opacity 0.15s, transform 0.15s;
+    }
+    .no-results-btn:hover { opacity: 0.88; transform: translateY(-1px); }
 
     /* ── Kartta ── */
     #map { flex: 1; }
@@ -375,7 +405,19 @@ function renderList(retailers) {
     : `${shown.length} tulosta`;
 
   if (shown.length === 0) {
-    list.innerHTML = '<div class="no-results">Ei hakutuloksia</div>';
+    list.innerHTML = `
+      <div class="no-results">
+        <div class="no-results-icon">🧴</div>
+        <div class="no-results-title">Jälleenmyyjää ei löydy alueeltasi</div>
+        <div class="no-results-text">
+          BiON Skincare -tuotteita ei vielä myydä hakualueellasi.
+          Voit tilata koko tuotevalikoiman helposti maahantuonnin
+          virallisesta verkkokaupasta — nopea toimitus koko Suomeen.
+        </div>
+        <a class="no-results-btn" href="https://www.vitobeauty.fi" target="_blank">
+          🛒 Tilaa verkkokaupasta
+        </a>
+      </div>`;
     return;
   }
 
