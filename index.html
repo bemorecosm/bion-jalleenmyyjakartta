@@ -474,6 +474,53 @@ document.getElementById('search-input').addEventListener('input', function() {
 });
 
 // ─────────────────────────────────────────────────────────
+// Merkki kartalle — erillinen funktio jotta voidaan kutsua myöhemmin
+// ─────────────────────────────────────────────────────────
+function addRetailerMarker(r) {
+  if (!r._coords) return;
+  const coords = r._coords;
+  const _popupKuva = (r.Kuva || '').trim();
+  const imgHtml = _popupKuva
+    ? `<img class="popup-img" src="${escHtml(_popupKuva)}" alt="${escHtml(r.Nimi)}" onerror="this.style.display='none'">`
+    : '';
+  const phoneHtml = r.Puhelin
+    ? `<div class="popup-row">📞 ${escHtml(r.Puhelin)}</div>`
+    : '';
+  const extraHtml = r.Lisätiedot
+    ? `<div class="popup-row" style="margin-top:4px;font-style:italic">${escHtml(r.Lisätiedot)}</div>`
+    : '';
+  const igUrl = r.Instagram ? igLink(r.Instagram) : '';
+  const linksHtml = (r.Kotisivut || igUrl) ? `
+    <div class="popup-links">
+      ${r.Kotisivut ? `<a href="${escHtml(r.Kotisivut)}" target="_blank">Kotisivut ↗</a>` : ''}
+      ${igUrl ? `<a class="ig" href="${escHtml(igUrl)}" target="_blank">Instagram ↗</a>` : ''}
+    </div>` : '';
+
+  const marker = L.marker([coords.lat, coords.lng], { icon: dotIcon })
+    .bindPopup(`
+      ${imgHtml}
+      <div class="popup-name">${escHtml(r.Nimi)}</div>
+      <div class="popup-row">${escHtml(r.Osoite)}</div>
+      <div class="popup-row">${r.Postinumero ? escHtml(r.Postinumero) + ' ' : ''}${escHtml(r.Paikkakunta)}</div>
+      ${phoneHtml}
+      ${linksHtml}
+      ${extraHtml}
+    `, { maxWidth: 260 })
+    .addTo(map);
+
+  marker.on('click', () => {
+    document.querySelectorAll('.retailer-card').forEach(c => c.classList.remove('active'));
+    const card = document.querySelector(`.retailer-card[data-index="${r._index}"]`);
+    if (card) {
+      card.classList.add('active');
+      card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  });
+
+  r._marker = marker;
+}
+
+// ─────────────────────────────────────────────────────────
 // Datan lataus
 // ─────────────────────────────────────────────────────────
 async function loadData() {
@@ -527,77 +574,38 @@ async function loadData() {
 
     complete: async function(results) {
       const rows = results.data;
-      const total = rows.length;
+      const needsGeocode = [];
 
-      for (let i = 0; i < total; i++) {
-        const row = rows[i];
-        row._index = i;
-
-        progress.textContent = `${i + 1} / ${total} — ${row.Nimi || ''}`;
-
-        let coords = null;
-
-        // 1. Käytä valmiita koordinaatteja jos taulukossa
+      // Kierros 1: kerää kaikki rivit, merkitse valmiit koordinaatit
+      for (const row of rows) {
         const lat = parseFloat(row.Leveysaste);
         const lng = parseFloat(row.Pituusaste);
-        if (!isNaN(lat) && !isNaN(lng)) {
-          coords = { lat, lng };
-        }
-
-        // 2. Geokoodaa tarvittaessa
-        if (!coords) coords = await geocode(row);
-
-        row._coords = coords;
-
-        if (coords) {
-          const _popupKuva = (row.Kuva || '').trim();
-          const imgHtml = _popupKuva
-            ? `<img class="popup-img" src="${escHtml(_popupKuva)}" alt="${escHtml(row.Nimi)}" onerror="this.style.display='none'">`
-            : '';
-          const phoneHtml = row.Puhelin
-            ? `<div class="popup-row">📞 ${escHtml(row.Puhelin)}</div>`
-            : '';
-          const extraHtml = row.Lisätiedot
-            ? `<div class="popup-row" style="margin-top:4px;font-style:italic">${escHtml(row.Lisätiedot)}</div>`
-            : '';
-          const igUrl = row.Instagram ? igLink(row.Instagram) : '';
-          const linksHtml = (row.Kotisivut || igUrl) ? `
-            <div class="popup-links">
-              ${row.Kotisivut ? `<a href="${escHtml(row.Kotisivut)}" target="_blank">Kotisivut ↗</a>` : ''}
-              ${igUrl ? `<a class="ig" href="${escHtml(igUrl)}" target="_blank">Instagram ↗</a>` : ''}
-            </div>` : '';
-
-          const marker = L.marker([coords.lat, coords.lng], { icon: dotIcon })
-            .bindPopup(`
-              ${imgHtml}
-              <div class="popup-name">${escHtml(row.Nimi)}</div>
-              <div class="popup-row">${escHtml(row.Osoite)}</div>
-              <div class="popup-row">${row.Postinumero ? escHtml(row.Postinumero) + ' ' : ''}${escHtml(row.Paikkakunta)}</div>
-              ${phoneHtml}
-              ${linksHtml}
-              ${extraHtml}
-            `, { maxWidth: 260 })
-            .addTo(map);
-
-          marker.on('click', () => {
-            document.querySelectorAll('.retailer-card').forEach(c => c.classList.remove('active'));
-            const card = document.querySelector(`.retailer-card[data-index="${i}"]`);
-            if (card) {
-              card.classList.add('active');
-              card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }
-          });
-
-          row._marker = marker;
-        }
-
+        row._coords = (!isNaN(lat) && !isNaN(lng)) ? { lat, lng } : null;
+        row._marker = null;
         allRetailers.push(row);
+        if (!row._coords) needsGeocode.push(row);
       }
 
+      // Järjestä aakkosittain ja aseta indeksit
       allRetailers.sort((a, b) => (a.Nimi || '').localeCompare(b.Nimi || '', 'fi'));
       allRetailers.forEach((r, i) => r._index = i);
+
+      // Luo markerit kaikille koordinaateilla varustetuille
+      allRetailers.forEach(r => { if (r._coords) addRetailerMarker(r); });
+
+      // Näytä kartta heti — ei odoteta geokoodausta
       overlay.classList.add('hidden');
       renderList(allRetailers);
+
+      // Kierros 2: geokoodaa loput taustalla (ei estä käyttöä)
+      for (const row of needsGeocode) {
+        const coords = await geocode(row);
+        if (coords) {
+          row._coords = coords;
+          addRetailerMarker(row);
+          renderList(allRetailers);
+        }
+      }
     },
 
     error: function(err) {
