@@ -493,26 +493,32 @@ async function loadData() {
       l = l.slice(1, -1).replace(/""/g, '"');
     }
     if (!l.includes('\t')) return l;
-    // Poimi Kuva-URL H-sarakkeesta (pilkkupositio 7) ennen kuin se poistetaan
+    // Poimi Kuva (pos 7), Leveysaste (pos 9) ja Pituusaste (pos 10) viimeisestä tab-kentästä
+    // ennen kuin ne poistetaan regex:llä
     const tabParts = l.split('\t');
     const lastField = tabParts[tabParts.length - 1];
-    let extractedKuva = '';
+    let extractedKuva = '', extractedLat = '', extractedLng = '';
     if (lastField.includes(',')) {
       const commaCols = lastField.split(',');
-      if (commaCols.length > 7) extractedKuva = commaCols[7].trim();
+      if (commaCols.length > 7)  extractedKuva = commaCols[7].trim().replace(/"/g, '');
+      if (commaCols.length > 9)  extractedLat  = commaCols[9].trim().replace(/"/g, '');
+      if (commaCols.length > 10) extractedLng  = commaCols[10].trim().replace(/"/g, '');
     }
-    return tabParts.map((v, idx, arr) => {
+    const parts = tabParts.map((v, idx, arr) => {
       v = v.replace(/,{2,}.*$/, ''); // poista ylimääräiset pilkkusarakkeet (,,data)
       if (idx === 0) v = v.replace(/^"/, ''); // poista aloituslainausmerkki
       if (idx === arr.length - 1) v = v.replace(/"$/, ''); // poista lopetuslainus.
       v = v.replace(/,+$/, '').replace(/^,+/, '');
-      // Jos Kuva-kenttä (indeksi 7) on tyhjä, käytä H-sarakkeesta poimittua arvoa
       if (idx === 7 && !v && extractedKuva) v = extractedKuva;
       if (v.includes(',') || v.includes('"') || v.includes('\n')) {
         return '"' + v.replace(/"/g, '""') + '"';
       }
       return v;
-    }).join(',');
+    });
+    // Lisää Leveysaste (J) ja Pituusaste (K) rivin loppuun
+    parts.push(extractedLat);
+    parts.push(extractedLng);
+    return parts.join(',');
   }).join('\n');
 
   Papa.parse(normalized, {
